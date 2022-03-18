@@ -22,26 +22,22 @@ function CreateRoom({ socket }) {
 
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
-  const [codeExists, setCodeExists] = useState(false);
   const [redirect, setRedirect] = useState(false);
 
   const fetchAPI = () => {
+    localStorage.setItem("name", name);
     axios.get(`/api/${code}`).then((res) => {
       if (res.data.codeExists) {
-        setCodeExists(true);
         message.error(
           "Room code already exists. Please create a different one."
         );
       } else {
-        setCodeExists(false);
-        socket.emit("createRoom", { name, code });
         setRedirect(true);
       }
     });
   };
 
   if (redirect) {
-    localStorage.setItem("name", name);
     return <Redirect to={`/room/${code}`} />;
   }
 
