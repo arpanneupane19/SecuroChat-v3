@@ -17,52 +17,77 @@ app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
 // {'roomName': ['userOne', 'userTwo']}
-let roomToUsers = new Map();
+let roomToUsers = {};
 
 // {'userOne': 'roomOne', 'userTwo': 'roomOne'}
-let userToRoom = new Map();
+let userToRoom = {};
 
-// {'socketIdOne': 'userOne', 'socketIdTwo': 'userTwo'}
-let idToUser = new Map();
+// {'socketIdOne': ['userOne', 'roomName'], 'socketIdTwo': ['userTwo', 'roomName']}
+let idToUserAndRoom = {};
+
+let botName = "SecuroChat Bot";
 
 app.get("/api/:code", (req, res) => {
-  const code = req.params.code;
-  const codeExists = roomToUsers.has(code);
-  /* 
-  If the room code exists, send the response with the codeExists property set to true along with the users in the room.
-  If the room code does not exist, send the response with the codeExists property set to false.
-  */
-  if (codeExists) {
-    res.json({ codeExists: codeExists, users: roomToUsers.get(code) });
-  } else {
-    res.json({ codeExists: codeExists });
-  }
+  const code = parseInt(req.params.code);
+  const codeExists = roomToUsers[code] ? true : false;
+  res.json({ codeExists: codeExists });
 });
 
 io.on("connection", (socket) => {
   console.log("Made a connection.");
 
-  // Creating rooms
-  socket.on("createRoom", ({ name, code }) => {
+  socket.on("connectUser", ({ name, code }) => {
     /* 
-    The frontend will send the name and the room code to the backend for the backend to create the room.
-    The roomToUsers, userToRoom, and idToUser maps will be updated with the new room and user (socket ID for idToUser).
-    Once that happens, the backend will emit an event that lets the frontend know that the user has connected to the room.
+    First check if the room exists.
+    If it does, then check if the user is already in the room or not. If they are, then emit a rejoined event letting the current user
+    know that they've rejoined the room.
+    If they're not in the room, then add them to the room and emit a joined event letting other users in the room know that they have joined
+    the chat room.
+
+    If the room does not exist, then create the room and add the user(s) to the room.
     */
-    roomToUsers.set(code, [name]);
-    userToRoom.set(name, code);
-    idToUser.set(socket.id, name);
-    socket.join(code);
-    console.log(`${name} created room ${code}`);
+    if (code in roomToUsers) {
+      if (roomToUsers[code].includes(name)) {
+        socket.emit("rejoined");
+      } else {
+        roomToUsers[code].push(name);
+        userToRoom[name] = code;
+        idToUserAndRoom[socket.id] = [name, code];
+        socket.join(code);
+        socket.to(code).emit("joined", name);
+        socket.emit("botChat", {
+          sender: botName,
+          message: `Welcome to the chat room. Feel free to chat privately.`,
+          time: moment().format("h:mm a"),
+        });
+      }
+    } else {
+      roomToUsers[code] = [];
+      roomToUsers[code].push(name);
+      userToRoom[name] = code;
+      idToUserAndRoom[socket.id] = [name, code];
+      socket.join(code);
+      socket.emit("botChat", {
+        sender: botName,
+        message: `Welcome to the chat room. Feel free to chat privately.`,
+        time: moment().format("h:mm a"),
+      });
+    }
+
     console.log(roomToUsers);
     console.log(userToRoom);
-    console.log(idToUser);
-    socket.emit("createdRoomSuccessfully", { name });
-    socket.emit("botChat", {
-      sender: "SecuroChat Bot",
-      message: `Hello ${name}, welcome to SecuroChat. Here, you can chat freely without worrying about privacy. Start the conversation!`,
-      time: moment().format("h:mm a"),
-    });
+    console.log(idToUserAndRoom);
+  });
+
+  // If users of a room are requested from the frontend
+  socket.on("requestUsers", (code) => {
+    /* 
+    The frontend will send the room code to the backend for the backend to send back the users in the room.
+    */
+
+    // Get users from the room code
+    const users = roomToUsers[code];
+    socket.emit("usersFromRequest", users);
   });
 });
 
