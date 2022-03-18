@@ -3,14 +3,40 @@ import { MessageTwoTone, LockOutlined, UserOutlined } from "@ant-design/icons";
 import "./Form.css";
 import { Form, Input, Button, message } from "antd";
 import { Link, Redirect } from "react-router-dom";
+import axios from "axios";
 
-function JoinRoom() {
+function JoinRoom({ socket }) {
   document.title = "SecuroChat - Join Room";
 
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [codeExists, setCodeExists] = useState(false);
   const [redirect, setRedirect] = useState(false);
+
+  const fetchAPI = () => {
+    localStorage.setItem("name", name);
+    axios.get(`/api/${code}`).then((res) => {
+      if (res.data.codeExists) {
+        socket.emit("requestUsers", code);
+        socket.on("usersFromRequest", (users) => {
+          console.log(users);
+          if (users.includes(localStorage.getItem("name"))) {
+            message.error(
+              "There is another user with this username. Please choose a different one."
+            );
+          } else {
+            setRedirect(true);
+          }
+        });
+      } else {
+        message.error("Room code does not exist.");
+      }
+    });
+  };
+
+  if (redirect) {
+    return <Redirect to={`/room/${code}`} />;
+  }
 
   return (
     <div className="container">
@@ -84,7 +110,7 @@ function JoinRoom() {
               style={{ width: "100%", borderRadius: "7.5px" }}
               type="primary"
               htmlType="submit"
-              // onClick={() => fetchAPI()}
+              onClick={() => fetchAPI()}
             >
               Join Room
             </Button>
