@@ -35,28 +35,18 @@ function Room({ socket }) {
   const [form] = Form.useForm();
 
   useEffect(() => {
-    axios.get(`/api/${code}`).then((res) => {
-      /* 
-      If someone goes to this route without having joined a room or creating one, fetch the API and check if that room code exists.
-      If the code exists, but they're not in the users array returned from the backend, then redirect them to the home page. 
-      If the code does not exist, then redirect  them to the home page.
-      */
-      if (res.data.codeExists) {
-        let name = localStorage.getItem("name");
-        if (!res.data.users.includes(name)) {
-          setRedirect(true);
-        }
-      } else {
-        setRedirect(true);
-      }
-    });
-    socket.on("createdRoomSuccessfully", ({ name }) => {
-      alert.success(`Hello ${name}! You've successfully created room ${code}.`);
-    });
+    let name = localStorage.getItem("name");
+
+    socket.emit("connectUser", { name, code });
+
     socket.on("botChat", (botMessage) => {
       setMessages([...messages, botMessage]);
     });
-  }, []);
+
+    socket.on("joined", (name) => alert.info(`${name} has joined the chat.`));
+
+    socket.on("rejoined", () => alert.success("You have rejoined the room."));
+  }, [socket]);
 
   if (redirect) {
     return <Redirect to="/" />;
