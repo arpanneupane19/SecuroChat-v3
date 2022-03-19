@@ -1,4 +1,9 @@
 import React, { useState, useEffect } from "react";
+import "antd/dist/antd.css";
+import { useParams } from "react-router-dom";
+import { Redirect } from "react-router-dom";
+import ScrollToBottom from "react-scroll-to-bottom";
+import { Form, Input, Button, message as alert, Modal } from "antd";
 import {
   MessageTwoTone,
   ArrowRightOutlined,
@@ -6,14 +11,9 @@ import {
   MessageOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import "antd/dist/antd.css";
-import { useParams } from "react-router-dom";
-import { Redirect } from "react-router-dom";
-import ScrollToBottom from "react-scroll-to-bottom";
-import { Form, Input, Button, message as alert } from "antd";
 import styled from "styled-components";
-import axios from "axios";
-import "./Room.css";
+import "./DarkRoom.css";
+import moment from "moment";
 
 const Message = styled.div`
   background-color: rgb(0, 140, 255);
@@ -29,24 +29,56 @@ const MessageBody = styled.div``;
 
 function Room({ socket }) {
   const { code } = useParams();
-  const [redirect, setRedirect] = useState(false);
+  document.title = `Securo Chat - ${code}`;
+
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
+  const [usersArr, setUsersArr] = useState([]);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [visible, setVisible] = useState(false);
+  const [redirect, setRedirect] = useState(false);
   const [form] = Form.useForm();
+
+  const sendMessage = () => {
+    if (message.trim() !== "") {
+      socket.emit("message", {
+        sender: localStorage.getItem("name"),
+        message: message,
+        time: moment().format("h:mm a"),
+        room: code,
+      });
+    }
+    setMessage("");
+    form.setFieldsValue({ message: "" });
+  };
 
   useEffect(() => {
     let name = localStorage.getItem("name");
+    if (name === null || name.trim() === "") {
+      setRedirect(true);
+    } else {
+      socket.emit("connectUser", { name, code });
 
-    socket.emit("connectUser", { name, code });
+      socket.on("botMessage", (botMessage) => {
+        setMessages((messages) => [...messages, botMessage]);
+      });
 
-    socket.on("botChat", (botMessage) => {
-      setMessages([...messages, botMessage]);
-    });
+      socket.on("message", (message) => {
+        setMessages((messages) => [...messages, message]);
+      });
 
-    socket.on("joined", (name) => alert.info(`${name} has joined the chat.`));
+      socket.on("joined", (name) => alert.info(`${name} has joined the chat.`));
 
-    socket.on("rejoined", () => alert.success("You have rejoined the room."));
-  }, [socket]);
+      socket.on("rejoined", () => {
+        alert.success("You have rejoined the room.");
+      });
+
+      socket.on("connectionSuccessful", (users) => {
+        setUsersArr(users);
+        setTotalUsers(users.length);
+      });
+    }
+  }, [socket, code]);
 
   if (redirect) {
     return <Redirect to="/" />;
@@ -65,6 +97,33 @@ function Room({ socket }) {
           <p>
             Messages <MessageOutlined />
           </p>
+          <p style={{ cursor: "pointer" }} onClick={() => setVisible(true)}>
+            <UserOutlined /> {totalUsers}
+          </p>
+          <Modal
+            title="Users In Room"
+            visible={visible}
+            onOk={() => setVisible(false)}
+            onCancel={() => setVisible(false)}
+            footer={[
+              <Button
+                type="primary"
+                key="back"
+                onClick={() => setVisible(false)}
+              >
+                Close
+              </Button>,
+            ]}
+          >
+            <UserOutlined /> {totalUsers}
+            <br></br>
+            <br></br>
+            {usersArr.map((user) => (
+              <div key={user.id}>
+                <p>{user}</p>
+              </div>
+            ))}
+          </Modal>
           <a href="/">
             <p title="Leave Room">
               Leave <ArrowRightOutlined />
@@ -96,6 +155,12 @@ function Room({ socket }) {
               placeholder="Message"
               name="message"
               style={{ textAlign: "left !important", marginRight: "8px" }}
+              rules={[
+                {
+                  required: true,
+                  message: "Please input the message!",
+                },
+              ]}
             >
               <Input
                 onChange={(e) => setMessage(e.target.value.trim())}
@@ -115,6 +180,9 @@ function Room({ socket }) {
                 style={{ width: "100%", borderRadius: "4px" }}
                 type="primary"
                 htmlType="submit"
+                onClick={() => {
+                  sendMessage();
+                }}
               >
                 Send <SendOutlined />
               </Button>
