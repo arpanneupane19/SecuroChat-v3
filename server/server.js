@@ -47,36 +47,51 @@ io.on("connection", (socket) => {
     If the room does not exist, then create the room and add the user(s) to the room.
     */
     if (code in roomToUsers) {
+      // If user opens the same room in another tab
       if (roomToUsers[code].includes(name)) {
         socket.emit("rejoined");
+        io.in(code).emit("connectionSuccessful", roomToUsers[code]);
       } else {
+        // If room already exists, but user needs to be added.
         roomToUsers[code].push(name);
         userToRoom[name] = code;
         idToUserAndRoom[socket.id] = [name, code];
         socket.join(code);
         socket.to(code).emit("joined", name);
-        socket.emit("botChat", {
+        io.in(code).emit("connectionSuccessful", roomToUsers[code]);
+        socket.emit("botMessage", {
           sender: botName,
           message: `Welcome to the chat room. Feel free to chat privately.`,
           time: moment().format("h:mm a"),
         });
       }
     } else {
+      // If room does not exist, then create the room and add the user(s) to the room.
       roomToUsers[code] = [];
       roomToUsers[code].push(name);
       userToRoom[name] = code;
       idToUserAndRoom[socket.id] = [name, code];
       socket.join(code);
-      socket.emit("botChat", {
+      io.in(code).emit("connectionSuccessful", roomToUsers[code]);
+      socket.emit("botMessage", {
         sender: botName,
-        message: `Welcome to the chat room. Feel free to chat privately.`,
+        message: "Welcome to the chat room. Feel free to chat privately.",
         time: moment().format("h:mm a"),
       });
     }
 
+    // Log the info to the console
     console.log(roomToUsers);
     console.log(userToRoom);
     console.log(idToUserAndRoom);
+  });
+
+  socket.on("message", ({ sender, message, time, room }) => {
+    io.in(room).emit("message", {
+      sender: sender,
+      message: message,
+      time: time,
+    });
   });
 
   // If users of a room are requested from the frontend
