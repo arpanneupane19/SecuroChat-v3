@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { MessageTwoTone, LockOutlined, UserOutlined } from "@ant-design/icons";
-import "./Form.css";
+import "./DarkForm.css";
 import { Form, Input, Button, message } from "antd";
 import { Link, Redirect } from "react-router-dom";
 import { useLocation } from "react-router-dom";
@@ -28,10 +28,12 @@ function CreateRoom({ socket }) {
     localStorage.setItem("name", name);
     axios.get(`/api/${code}`).then((res) => {
       if (res.data.codeExists) {
+        // Check if the room code is already taken.
         message.error(
           "Room code already exists. Please create a different one."
         );
       } else {
+        // If room code is not taken, then redirect to the room.
         setRedirect(true);
       }
     });
