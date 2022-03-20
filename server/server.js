@@ -8,9 +8,7 @@ const socketIO = require("socket.io");
 const io = socketIO(server, {
   cors: { origin: "http://localhost:3000" },
 });
-const path = require("path");
 const moment = require("moment");
-const cors = require("cors");
 
 // Middleware setup
 app.use(express.urlencoded({ extended: false }));
@@ -36,6 +34,7 @@ app.get("/api/:code", (req, res) => {
 io.on("connection", (socket) => {
   console.log("Made a connection.");
 
+  // When a user connects to a room
   socket.on("connectUser", ({ name, code }) => {
     /* 
     First check if the room exists.
@@ -47,18 +46,22 @@ io.on("connection", (socket) => {
     If the room does not exist, then create the room and add the user(s) to the room.
     */
     if (code in roomToUsers) {
-      // If user opens the same room in another tab
-      if (roomToUsers[code].includes(name)) {
-        socket.emit("rejoined");
-        io.in(code).emit("connectionSuccessful", roomToUsers[code]);
+      /* 
+        If user is already in room and is rejoining on another tab, then join the room and emit a rejoined event.
+        In addition, add a new socketId to the idToUserAndRoom object.
+        The conditional statement below does that.
+        */
+      if (roomToUsers[code].includes(name) && userToRoom[name] === code) {
+        socket.join(code);
+        idToUserAndRoom[socket.id] = [name, code];
+        socket.emit("rejoined", "You have rejoined the room.");
       } else {
         // If room already exists, but user needs to be added.
         roomToUsers[code].push(name);
         userToRoom[name] = code;
         idToUserAndRoom[socket.id] = [name, code];
         socket.join(code);
-        socket.to(code).emit("joined", name);
-        io.in(code).emit("connectionSuccessful", roomToUsers[code]);
+        socket.to(code).emit("joinLeaveEvent", `${name} has joined the chat.`);
         socket.emit("botMessage", {
           sender: botName,
           message: `Welcome to the chat room. Feel free to chat privately.`,
@@ -72,13 +75,14 @@ io.on("connection", (socket) => {
       userToRoom[name] = code;
       idToUserAndRoom[socket.id] = [name, code];
       socket.join(code);
-      io.in(code).emit("connectionSuccessful", roomToUsers[code]);
       socket.emit("botMessage", {
         sender: botName,
         message: "Welcome to the chat room. Feel free to chat privately.",
         time: moment().format("h:mm a"),
       });
     }
+    // Update the active users indicator in the frontend
+    io.in(code).emit("updateActiveUsers", roomToUsers[code]);
 
     // Log the info to the console
     console.log(roomToUsers);
@@ -86,6 +90,7 @@ io.on("connection", (socket) => {
     console.log(idToUserAndRoom);
   });
 
+  // When a user sends a message, emit the message to the frontend.
   socket.on("message", ({ sender, message, time, room }) => {
     io.in(room).emit("message", {
       sender: sender,
@@ -94,15 +99,64 @@ io.on("connection", (socket) => {
     });
   });
 
-  // If users of a room are requested from the frontend
+  // If the frontend is requesting a list of active users in the room, then emit the list of active users to the frontend.
   socket.on("requestUsers", (code) => {
-    /* 
-    The frontend will send the room code to the backend for the backend to send back the users in the room.
-    */
-
     // Get users from the room code
     const users = roomToUsers[code];
     socket.emit("usersFromRequest", users);
+  });
+
+  // When a user disconnects from a room
+  socket.on("disconnect", (reason) => {
+    // Get the socket id first.
+    const socketId = socket.id;
+    if (socketId in idToUserAndRoom) {
+      // Get the name and room from socketId.
+      const [name, room] = idToUserAndRoom[socketId];
+
+      /* 
+      Before removing the user and disconnecting them, first check if the user
+      is still connected to the room on another tab by checking if other socketId's have the same name and room.
+      First create a userCount to keep track of how many tabs are connected to the same room.
+      */
+      let userCount = 0;
+      const allSocketIds = Object.keys(idToUserAndRoom);
+      for (let i = 0; i < allSocketIds.length; i++) {
+        if (
+          idToUserAndRoom[allSocketIds[i]][0] === name &&
+          idToUserAndRoom[allSocketIds[i]][1] === room
+        ) {
+          userCount++;
+        }
+      }
+
+      /* 
+      If the userCount is 1, then that means there was only one connection/tab open to the room.
+      In this case, remove the user from the userToRoom and roomToUsers objects along with removing that socket id.
+      */
+      if (userCount == 1) {
+        delete userToRoom[name];
+        roomToUsers[room].splice(roomToUsers[room].indexOf(name), 1);
+        delete idToUserAndRoom[socketId];
+        // If the last user in the room leaves and the room becomes empty, delete the room.
+        if (roomToUsers[room].length === 0) {
+          delete roomToUsers[room];
+        }
+        socket.leave(room);
+        io.in(room).emit("updateActiveUsers", roomToUsers[room]);
+        io.in(room).emit("joinLeaveEvent", `${name} has left the chat.`);
+      } else if (userCount > 1) {
+        // If the userCount is greater than 1, then the user is still connected to the room on another tab.
+        // In this case, remove the connected socket id from the idToUserAndRoom object.
+        delete idToUserAndRoom[socketId];
+        socket.leave(room);
+      }
+
+      // Log the info to the console.
+      console.log(roomToUsers);
+      console.log(userToRoom);
+      console.log(idToUserAndRoom);
+    }
   });
 });
 
