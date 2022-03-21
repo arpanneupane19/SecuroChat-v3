@@ -35,6 +35,10 @@ app.get("/api/:code", (req, res) => {
   res.json({ codeExists: codeExists });
 });
 
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "../client/build/index.html"));
+});
+
 io.on("connection", (socket) => {
   console.log("Made a connection.");
 
