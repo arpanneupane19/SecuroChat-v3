@@ -25,7 +25,7 @@ function CreateRoom({ socket }) {
   const [redirect, setRedirect] = useState(false);
 
   const fetchAPI = () => {
-    localStorage.setItem("name", name);
+    localStorage.setItem("name", name.trim());
     axios.get(`/api/${code}`).then((res) => {
       if (res.data.codeExists) {
         // Check if the room code is already taken.

@@ -13,7 +13,7 @@ function JoinRoom({ socket }) {
   const [redirect, setRedirect] = useState(false);
 
   const fetchAPI = () => {
-    localStorage.setItem("name", name);
+    localStorage.setItem("name", name.trim());
     axios.get(`/api/${code}`).then((res) => {
       if (res.data.codeExists) {
         // Get the usernames of users in that specific room to make sure that there are no duplicates.
