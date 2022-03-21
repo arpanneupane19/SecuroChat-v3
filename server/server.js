@@ -30,7 +30,7 @@ let idToUserAndRoom = {};
 let botName = "SecuroChat Bot";
 
 app.get("/api/:code", (req, res) => {
-  const code = parseInt(req.params.code);
+  const code = req.params.code;
   const codeExists = roomToUsers[code] ? true : false;
   res.json({ codeExists: codeExists });
 });
