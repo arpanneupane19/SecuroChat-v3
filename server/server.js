@@ -9,10 +9,14 @@ const io = socketIO(server, {
   cors: { origin: "http://localhost:3000" },
 });
 const moment = require("moment");
+const path = require("path");
 
 // Middleware setup
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
+
+// Serve the client build
+app.use(express.static(path.join(__dirname, "../client/build")));
 
 // {'roomName': ['userOne', 'userTwo']}
 let roomToUsers = {};
