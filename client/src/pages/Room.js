@@ -43,7 +43,7 @@ function Room({ socket }) {
     if (message.trim() !== "") {
       socket.emit("message", {
         sender: localStorage.getItem("name"),
-        message: message,
+        message: message.trim(),
         time: moment().format("h:mm a"),
         room: code,
       });
