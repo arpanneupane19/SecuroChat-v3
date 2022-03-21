@@ -67,18 +67,18 @@ function Room({ socket }) {
         setMessages((messages) => [...messages, message]);
       });
 
-      socket.on("joined", (name) => alert.info(`${name} has joined the chat.`));
+      socket.on("joinLeaveEvent", (message) => alert.info(message));
 
-      socket.on("rejoined", () => {
-        alert.success("You have rejoined the room.");
+      socket.on("rejoined", (message) => {
+        alert.info(message);
       });
 
-      socket.on("connectionSuccessful", (users) => {
+      socket.on("updateActiveUsers", (users) => {
         setUsersArr(users);
         setTotalUsers(users.length);
       });
     }
-  }, [socket, code]);
+  }, []);
 
   if (redirect) {
     return <Redirect to="/" />;

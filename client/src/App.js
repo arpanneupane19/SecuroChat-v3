@@ -9,6 +9,7 @@ import { io } from "socket.io-client";
 const socket = io();
 
 function App() {
+  document.title = "SecuroChat";
   return (
     <Router>
       <Switch>
@@ -21,6 +22,7 @@ function App() {
         <Route exact path="/room/:code">
           <Room socket={socket} />
         </Route>
+        <Route component={CreateRoom} />
       </Switch>
     </Router>
   );
