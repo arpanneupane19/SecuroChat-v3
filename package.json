@@ -1,0 +1,20 @@
+{
+  "name": "securochat",
+  "version": "1.0.0",
+  "description": "Private chatting platform built with Node and React",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server",
+    "build": "cd client && npm install && npm run build && cd ../server && npm install"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arpanneupane19/SecuroChat-v3.git"
+  },
+  "author": "Arpan Neupane",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/arpanneupane19/SecuroChat-v3/issues"
+  },
+  "homepage": "https://github.com/arpanneupane19/SecuroChat-v3#readme"
+}
