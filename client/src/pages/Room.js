@@ -29,7 +29,7 @@ const MessageBody = styled.div``;
 
 function Room({ socket }) {
   const { code } = useParams();
-  document.title = `Securo Chat - ${code}`;
+  document.title = `SecuroChat - ${code}`;
 
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
