@@ -44,6 +44,7 @@ io.on("connection", (socket) => {
 
   // When a user connects to a room
   socket.on("connectUser", ({ name, code }) => {
+    console.log("hit");
     /* 
     First check if the room exists.
     If it does, then check if the user is already in the room or not. If they are, then emit a rejoined event letting the current user
@@ -116,6 +117,59 @@ io.on("connection", (socket) => {
 
   // When a user disconnects from a room
   socket.on("disconnect", (reason) => {
+    // Get the socket id first.
+    const socketId = socket.id;
+    if (socketId in idToUserAndRoom) {
+      // Get the name and room from socketId.
+      const [name, room] = idToUserAndRoom[socketId];
+
+      /* 
+      Before removing the user and disconnecting them, first check if the user
+      is still connected to the room on another tab by checking if other socketId's have the same name and room.
+      First create a userCount to keep track of how many tabs are connected to the same room.
+      */
+      let userCount = 0;
+      const allSocketIds = Object.keys(idToUserAndRoom);
+      for (let i = 0; i < allSocketIds.length; i++) {
+        if (
+          idToUserAndRoom[allSocketIds[i]][0] === name &&
+          idToUserAndRoom[allSocketIds[i]][1] === room
+        ) {
+          userCount++;
+        }
+      }
+
+      /* 
+      If the userCount is 1, then that means there was only one connection/tab open to the room.
+      In this case, remove the user from the userToRoom and roomToUsers objects along with removing that socket id.
+      */
+      if (userCount == 1) {
+        delete userToRoom[name];
+        roomToUsers[room].splice(roomToUsers[room].indexOf(name), 1);
+        delete idToUserAndRoom[socketId];
+        // If the last user in the room leaves and the room becomes empty, delete the room.
+        if (roomToUsers[room].length === 0) {
+          delete roomToUsers[room];
+        }
+        socket.leave(room);
+        io.in(room).emit("updateActiveUsers", roomToUsers[room]);
+        io.in(room).emit("joinLeaveEvent", `${name} has left the chat.`);
+      } else if (userCount > 1) {
+        // If the userCount is greater than 1, then the user is still connected to the room on another tab.
+        // In this case, remove the connected socket id from the idToUserAndRoom object.
+        delete idToUserAndRoom[socketId];
+        socket.leave(room);
+      }
+
+      // Log the info to the console.
+      console.log(roomToUsers);
+      console.log(userToRoom);
+      console.log(idToUserAndRoom);
+    }
+  });
+
+  // Same as above but for when a user disconnects from the mobile app.
+  socket.on("leaveFromMobile", (reason) => {
     // Get the socket id first.
     const socketId = socket.id;
     if (socketId in idToUserAndRoom) {
